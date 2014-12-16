@@ -23,28 +23,51 @@
  Please select your utility power frequency from frq variable.
  
  */
+
+// 0 is 100% power, 127 is 0%
+// (we are leaving a bit of a buffer here for the "on" state)
 #define  fullOn    10
 #define  fullOff   127
-#define  FQ_50      1 // in case of 50Hz
-#define  FQ_60      0 // in case of 50Hz
+
+// frequency constants
+// http://en.wikipedia.org/wiki/Mains_electricity_by_country
+#define  FQ_50      1 // 50Hz
+#define  FQ_60      0 // 60Hz (U.S.)
+
+// software version
 #define  VER       "2.0"
 
+// this will store serial input
 int inbyte;
-int AC_LOAD = 3;    // Output to Opto Triac pin
-int dimming = fullOff;  // Dimming level (0-128)  0 = ON, 128 = OFF
+// Output to Opto Triac pin
+int AC_LOAD = 3;
+// Dimming level (0-128)  0 = ON, 128 = OFF
+int dimming = fullOff;  
 
-boolean frq = FQ_50;     // change the frequency here. 
+// change the frequency here. 
+boolean frq = FQ_60;    
+// we are not counting up 
 boolean countUp = false;
+// we are simulating the fader by default
 boolean simulate = true; 
 
 void setup()
 {
-  pinMode(AC_LOAD, OUTPUT);	      // Set the AC Load as output
-  attachInterrupt(0, zero_crosss_int, RISING);  // Choose the zero cross interrupt # from the table above
+  // Set the AC Load as output
+  pinMode(AC_LOAD, OUTPUT);	      
+  // Choose the zero cross interrupt # from the table above
+  attachInterrupt(0, zero_crosss_int, RISING);
+  // Open serial port
   Serial.begin(115200);
+  // Show the main menu
+  displayMenu();
 }
 
-void zero_crosss_int()  // function to be fired at the zero crossing to dim the light
+/**
+ * Interrupt Service Routine to be fired at the zero crossing to dim the light
+ * http://arduino.cc/en/Reference/attachInterrupt
+ */
+void zero_crosss_int()  
 {
   // Firing angle calculation
   // 50Hz-> 10ms (1/2 Cycle) → (10000us - 10us) / 128 = 78 (Approx)
@@ -82,13 +105,16 @@ void loop()
 
   delay(20);
 
-  if (Serial.available() > 0)
+  if (Serial.available() > 0) {
     _serial_int();
+  }
 
 }
 
 
-
+/**
+ * Show the serial menu
+ */
 void displayMenu() {
   Serial.println(" -------- InMojo Digital Dimmer v.2 | inmojo.com -------- ");
   Serial.println("");
@@ -101,37 +127,57 @@ void displayMenu() {
   Serial.println("");
 }
 
+/**
+ * Output the current dimming value
+ */
+void queryDimming() {
+  Serial.print("Dimming: "); 
+  Serial.println(dimming);  
+}
 
-
+/**
+ * Handle serial input
+ */
 void _serial_int(){
   while (Serial.available() > 0) {
     inbyte = Serial.read();
 
     switch (inbyte) {
     case 'd':
+      // interrupt is fired on the AC zero-crossing
+      // http://arduino.cc/en/Reference/attachInterrupt
       attachInterrupt(0, zero_crosss_int, RISING);
-      if(simulate)
+
+      // toggle simlation
+      if(simulate) {
+        Serial.println("Turn on simulate dimming");
         simulate = false;
-      else
+      } else {
+        Serial.println("Turn off simulate dimming");
         simulate = true;
+      }
       break;
+
     case 'm':
       displayMenu(); 
       break;
+
     case '1':
       simulate = false;
       detachInterrupt(0); 
       digitalWrite(AC_LOAD, HIGH); 
-      break;      
+      break;
+
     case '0':
       simulate = false;
       detachInterrupt(0); 
       digitalWrite(AC_LOAD, LOW); 
-      break;   
+      break;
+
     case 'q':
-      Serial.print("Dimming: "); 
-      Serial.println(dimming);
-      break;        
+      queryDimming();
+      break;
+
     case 'v':
       Serial.println(VER);
       break;
